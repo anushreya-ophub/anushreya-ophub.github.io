@@ -296,6 +296,8 @@ html.js:not(.is-ready) .faq, html.js:not(.is-ready) .conveyor, html.js:not(.is-r
 .faq__q svg { width: clamp(26px, 3vw, 38px); height: auto; flex: none; transition: transform .25s }
 .faq__q[aria-expanded="true"] svg { transform: rotate(45deg) }
 .faq__a { background: #2d2d2d; margin-top: 1px; padding: clamp(18px, 2vw, 24px); font-size: clamp(16px, 1.7vw, 21px); line-height: 1.45 }
+.faq__a a { color: #fff; text-decoration: underline; text-underline-offset: 3px }
+.faq__a a:hover { color: var(--red) }
 
 /* contact call-to-action (from sample C) */
 .ctaband { text-align: center; padding: clamp(40px, 6vw, 72px) var(--pad) clamp(48px, 7vw, 88px); max-width: 860px; margin: 0 auto }
