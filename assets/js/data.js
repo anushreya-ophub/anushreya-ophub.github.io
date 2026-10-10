@@ -11,6 +11,7 @@ window.PORTFOLIO = {
     email: 'ssanushreya@gmail.com',
     linkedin: 'https://www.linkedin.com/in/anushreya1306',
     linkedinLabel: 'linkedin.com/in/anushreya1306',
+    resume: 'assets/resume/Anushreya-Resume.pdf',
     short: 'Business analyst at AJIO (Reliance Retail). Turns return and fraud data into driver-level root causes, quantified in percentage points — then automates the fix.',
     summary: 'Business analyst with 2+ years at AJIO (Reliance Retail), owning return KPI analytics (RTO/RVP) for a large fashion e-commerce platform. I turn operational data into driver-level root cause analysis, quantify impact in percentage points, and present the results in Monthly Business Reviews and to CXOs. I also use GenAI tools to automate manual workflows: my fraud order cancellation automation, built in Python with Claude Code, has cancelled ~₹3.5 Cr of high-risk orders in 4 months.'
   },

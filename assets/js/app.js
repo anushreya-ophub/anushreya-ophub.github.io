@@ -56,6 +56,7 @@
         <div class="bill__ctas">
           <button class="btn btn--play" data-play="${key}">${NF.icons.play}${photo ? 'Play Trailer' : 'Play'}</button>
           <button class="btn btn--info" data-open="${key}">${NF.icons.info}More Info</button>
+          <a class="circ" href="${P.person.resume}" download="Anushreya-Resume.pdf" aria-label="Download résumé (PDF)">${NF.icons.download}</a>
         </div>
       </div>
       <div class="bill__rating">${P.person.location}</div>`;

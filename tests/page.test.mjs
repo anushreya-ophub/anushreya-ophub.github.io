@@ -49,6 +49,15 @@ test('every local asset referenced by index.html exists', () => {
   for (const r of refs) assert.ok(existsSync(new URL(r, root)), r);
 });
 
+test('résumé PDF ships with the site and is linked for download from contact and footer', async () => {
+  const { statSync } = await import('node:fs');
+  const pdf = new URL('assets/resume/Anushreya-Resume.pdf', root);
+  assert.ok(existsSync(pdf), 'assets/resume/Anushreya-Resume.pdf');
+  assert.ok(statSync(pdf).size > 10 * 1024, 'résumé PDF suspiciously small');
+  const links = [...html.matchAll(/<a\b[^>]*>/g)].map(m => m[0]).filter(a => a.includes('href="assets/resume/Anushreya-Resume.pdf"') && /\sdownload\b/.test(a));
+  assert.ok(links.length >= 2, 'expected download links in contact and footer, got ' + links.length);
+});
+
 test('social preview image exists and is under 200 KB', async () => {
   const { statSync } = await import('node:fs');
   const og = new URL('assets/img/og-image.jpg', root);

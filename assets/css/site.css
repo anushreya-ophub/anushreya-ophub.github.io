@@ -308,6 +308,9 @@ html.js:not(.is-ready) .faq, html.js:not(.is-ready) .conveyor, html.js:not(.is-r
 .cta .btn { min-height: 56px; font-size: clamp(18px, 1.6vw, 24px); padding-inline: 26px }
 .ctaband .ctaband__alt { color: var(--fg-3); font-size: 14px; margin-top: 18px }
 .ctaband__alt a { color: var(--fg-2); text-decoration: underline; text-underline-offset: 3px }
+.ctaband > .ctaband__resume { margin: 20px 0 0 }
+/* billboard CTAs (Play, More Info, résumé) stay on one row down to 360 px */
+@media (max-width: 420px) { .bill__ctas { gap: 8px; flex-wrap: nowrap } .bill__ctas .btn { padding: .5em .9em .5em .75em; gap: 6px; font-size: 14px } .bill__ctas .circ { width: 38px; height: 38px } }
 
 /* no-JavaScript fallback */
 .nojs { max-width: 760px; margin: 0 auto; padding: 120px var(--pad) 40px; color: var(--fg-2) }
