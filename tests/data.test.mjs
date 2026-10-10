@@ -57,7 +57,7 @@ test('every title has what the cards, modal and player need', () => {
 
 test('contact details come from the résumé and the phone number is never published', () => {
   assert.equal(P.person.email, 'ssanushreya@gmail.com');
-  assert.equal(P.person.linkedin, 'https://www.linkedin.com/in/anushreya1306');
+  assert.equal(P.person.linkedin, 'https://www.linkedin.com/in/anushreya-ops');
   assert.doesNotMatch(read('assets/js/data.js'), /(?:\+?91[\s-]?)?\b\d{5}[\s-]?\d{5}\b|\b\d{10}\b/);
 });
 

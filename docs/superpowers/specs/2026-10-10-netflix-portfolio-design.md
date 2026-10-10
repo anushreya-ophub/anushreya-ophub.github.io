@@ -16,7 +16,7 @@ Replace the current editorial site with a Netflix-style single-page portfolio fo
 | Direction | Mix of the three samples: **A (Browse) as the base**, **B's trailer** for the hero's Play button, **C's FAQ and email call-to-action** at the bottom. |
 | Content | Résumé facts only. Nothing from the current site's unsupported numbers (34% reduction, ₹2.4 Cr averted, 89% precision, "Returns Reduction Manager", category-lead quote). |
 | Photo | New headshot (`Professional Navy Blazer Headshot.png`), stored as an optimized JPEG. AI-generated images (ChatGPT prompts already supplied) drop into named slots when ready. The build does not wait for them. |
-| Contact | Email `ssanushreya@gmail.com` (from the résumé; a single constant in `data.js`) and LinkedIn `linkedin.com/in/anushreya1306`. The phone number is not shown on the page itself. A downloadable résumé PDF (the original, phone number included — owner's decision, 2026-10-11) is linked from the billboard, details window, contact section and footer. |
+| Contact | Email `ssanushreya@gmail.com` (from the résumé; a single constant in `data.js`) and LinkedIn `linkedin.com/in/anushreya-ops`. The phone number is not shown on the page itself. A downloadable résumé PDF (the original, phone number included — owner's decision, 2026-10-11) is linked from the billboard, details window, contact section and footer. |
 | Branding | Netflix-inspired layout only. No Netflix logo, name or marks. Own wordmark (ANUSHREYA, red) and red "A" studio mark. |
 | Stack | Static HTML, CSS and vanilla JS. No build step, no framework, served by GitHub Pages from `main`. |
 | Theme | Dark only. This is part of the brand. |
