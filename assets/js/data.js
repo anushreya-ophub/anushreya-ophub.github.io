@@ -11,6 +11,7 @@ window.PORTFOLIO = {
     email: 'ssanushreya@gmail.com',
     linkedin: 'https://www.linkedin.com/in/anushreya1306',
     linkedinLabel: 'linkedin.com/in/anushreya1306',
+    resume: 'assets/resume/Anushreya-Resume.pdf',
     short: 'Business analyst at AJIO (Reliance Retail). Turns return and fraud data into driver-level root causes, quantified in percentage points — then automates the fix.',
     summary: 'Business analyst with 2+ years at AJIO (Reliance Retail), owning return KPI analytics (RTO/RVP) for a large fashion e-commerce platform. I turn operational data into driver-level root cause analysis, quantify impact in percentage points, and present the results in Monthly Business Reviews and to CXOs. I also use GenAI tools to automate manual workflows: my fraud order cancellation automation, built in Python with Claude Code, has cancelled ~₹3.5 Cr of high-risk orders in 4 months.'
   },
@@ -302,6 +303,6 @@ window.PORTFOLIO = {
     { q: 'What’s your biggest win so far?', a: 'A fraud order cancellation automation, rebuilt in Python with Claude Code. Running every 3 hours since June 2026, it has processed 2,500+ orders and 14,000+ line items across 200+ runs, and cancelled ~₹3.5 Cr of high-risk orders.' },
     { q: 'Which tools do you use?', a: 'SQL (Databricks), Python (pandas, requests, scheduling), Claude Code and AI-assisted SQL, Tableau, Power BI, Excel and Google Sheets — plus Qualtrics, Draw.io, Lucidchart, Asana and Zoho.' },
     { q: 'Where did you study?', a: 'PGDM in Operations & Supply Chain with a Business Analytics minor from Universal Business School, Mumbai (ranked 3rd in batch), and a B.Tech in Biotechnology from Amity University, Noida.' },
-    { q: 'How do I get in touch?', a: 'Email ssanushreya@gmail.com or connect on LinkedIn at linkedin.com/in/anushreya1306.' }
+    { q: 'How do I get in touch?', a: 'Email <a href="mailto:ssanushreya@gmail.com">ssanushreya@gmail.com</a>, connect on LinkedIn at <a href="https://www.linkedin.com/in/anushreya1306" target="_blank" rel="noopener">linkedin.com/in/anushreya1306</a>, or <a href="assets/resume/Anushreya-Resume.pdf" download="Anushreya-Resume.pdf">download my résumé (PDF)</a>.' }
   ]
 };

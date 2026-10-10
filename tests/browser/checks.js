@@ -35,6 +35,7 @@ export const checks = {
     }
     if (!$('#bill [data-play="series"]')?.textContent.includes('Play Trailer')) f.push('Play Trailer button');
     if (!$('#bill [data-open="series"]')) f.push('More Info button');
+    if (!$('#bill a[download][href$="Anushreya-Resume.pdf"]')) f.push('billboard résumé download link');
     if (!$('#bill .bill__rating')?.textContent.includes(P.person.location)) f.push('location tag');
     return f;
   },
@@ -140,6 +141,7 @@ export const checks = {
     if (!input || input.type !== 'email') f.push('email input');
     if (!$('#cta-form button[type="submit"]')) f.push('submit button');
     if (!$(`#contact a[href="mailto:${P.person.email}"]`)) f.push('visible email link');
+    if (!$('#contact a[download][href$="Anushreya-Resume.pdf"]')) f.push('contact résumé download link');
     const li = $('#contact a[href*="linkedin.com"]');
     if (!li || li.target !== '_blank' || !li.rel.includes('noopener')) f.push('LinkedIn link attributes');
     input.value = 'not-an-email';
