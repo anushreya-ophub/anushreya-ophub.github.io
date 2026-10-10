@@ -104,7 +104,7 @@
           ny = lookAxis(aim.y - (b.top + b.height / 2), innerHeight * .05, innerHeight * .35);
         }
       } else return;                                          // idle glance: the interval sets tx, ty
-      if (Math.abs(nx - rx) + Math.abs(ny - ry) > .04) { rx = nx; ry = ny; snap = false; clearTimeout(dwell); dwell = setTimeout(() => { snap = true; kick(); }, 220); }
+      if (Math.abs(nx - rx) + Math.abs(ny - ry) > .04) { rx = nx; ry = ny; snap = false; clearTimeout(dwell); dwell = setTimeout(() => { snap = true; kick(); }, 150); }
       tx = snap ? Math.round(rx) : rx; ty = snap ? Math.round(ry) : ry;
     }
     /* ease toward the target every frame (frame-rate independent); stop once settled */
@@ -113,7 +113,7 @@
       const dt = last ? Math.min((now - last) / 1000, .1) : 1 / 60;
       last = now;
       target();
-      const k = 1 - Math.exp(-dt * (fine || tilt ? 12 : 4));
+      const k = 1 - Math.exp(-dt * (fine || tilt ? 18 : 8));
       gx += (tx - gx) * k; gy += (ty - gy) * k;
       if (Math.abs(tx - gx) < .001 && Math.abs(ty - gy) < .001) { gx = tx; gy = ty; last = 0; }
       else raf = requestAnimationFrame(tick);
@@ -124,7 +124,7 @@
     function syncIdle() {
       const go = !still && !fine && !tilt && onScreen && !document.hidden;
       if (go && !idle) {
-        idle = setInterval(() => { [tx, ty] = LOOK_IDLE[step++ % LOOK_IDLE.length]; kick(); }, 1600);
+        idle = setInterval(() => { [tx, ty] = LOOK_IDLE[step++ % LOOK_IDLE.length]; kick(); }, 1200);
       }
       if (!go && idle) { clearInterval(idle); idle = 0; }
     }
