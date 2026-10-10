@@ -49,6 +49,9 @@
   const LOOK_SHIFT = 2, LOOK_TURN = 1.5;                          // parallax: up to 2 % translate (~3 px) and 1.5° rotate
   /* distance past a small dead zone → 0…2 around the centre (1), easing out with tanh so it never jumps at the edges */
   const lookAxis = (d, dead, span) => 1 + Math.sign(d) * Math.tanh(1.6 * Math.max(0, Math.abs(d) - dead) / span);
+  /* Photos of different head poses ghost when mixed 50/50, so the cross-fade only happens in the middle 40 % between two photos
+     (smoothstep); the rest of the way a photo shows cleanly. The position itself (and the parallax) still moves continuously. */
+  const lookSharp = f => { const t = Math.min(1, Math.max(0, (f - .3) / .4)); return t * t * (3 - 2 * t); };
   function mountLook(holder, opts) {
     opts = opts || {};
     const paths = P.images.look, root = document.documentElement;
@@ -79,7 +82,7 @@
     }
     /* Paint (gx, gy): bottom layer fully opaque, each next layer at w / (sum of weights so far) → an exact weighted average. */
     function paint() {
-      const x0 = Math.min(Math.floor(gx), 1), y0 = Math.min(Math.floor(gy), 1), fx = gx - x0, fy = gy - y0;
+      const x0 = Math.min(Math.floor(gx), 1), y0 = Math.min(Math.floor(gy), 1), fx = lookSharp(gx - x0), fy = lookSharp(gy - y0);
       const w = [[y0 * 3 + x0, (1 - fx) * (1 - fy)], [y0 * 3 + x0 + 1, fx * (1 - fy)], [(y0 + 1) * 3 + x0, (1 - fx) * fy], [(y0 + 1) * 3 + x0 + 1, fx * fy]]
         .filter(([i, v]) => v > .002 && ready(frames[i]));          // row-major order = DOM order = paint order
       const want = new Array(9).fill(0);
