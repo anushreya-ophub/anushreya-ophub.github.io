@@ -55,7 +55,7 @@
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
     const frames = [], op = new Array(9).fill(0);
-    let stack = null, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, last = 0, aim = null;
+    let stack = null, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, last = 0, aim = null, tilt0 = null;
     let gx = 1, gy = 1, tx = 1, ty = 1, dom = '2-2';
     const ready = im => im && im.complete && im.naturalWidth > 0;
 
@@ -68,6 +68,7 @@
       im.src = paths[i];
       frames[i] = im;
       im.decode().catch(() => {});                  // decode up front so the first fade-in doesn't stall
+      if (!still) im.addEventListener('load', () => kick()); // a frame that arrives late joins the blend of a resting pointer
       stack.insertBefore(im, frames.slice(i + 1).find(Boolean) || null); // keep the DOM in row-major order
       return im;
     }
@@ -115,11 +116,16 @@
       target();
       const k = 1 - Math.exp(-dt * (fine || tilt ? 18 : 8));
       gx += (tx - gx) * k; gy += (ty - gy) * k;
-      if (Math.abs(tx - gx) < .001 && Math.abs(ty - gy) < .001) { gx = tx; gy = ty; last = 0; }
+      if (Math.abs(tx - gx) < .001 && Math.abs(ty - gy) < .001) { gx = tx; gy = ty; last = 0; holder.classList.remove('is-moving'); }
       else raf = requestAnimationFrame(tick);
       paint();
     }
-    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    /* no animation frames are scheduled while the portrait is off screen (or its gate is closed); `is-moving` gives the layers their will-change only while a loop runs */
+    function kick() {
+      if (raf || !onScreen) return;
+      holder.classList.add('is-moving');
+      raf = requestAnimationFrame(tick);
+    }
 
     function syncIdle() {
       const go = !still && !fine && !tilt && onScreen && !document.hidden;
@@ -133,23 +139,33 @@
       if (fine) {
         addEventListener('pointermove', e => {
           if (e.pointerType === 'touch' || (e.isTrusted && testing())) return;
-          aim = { x: e.clientX, y: e.clientY }; kick();
+          aim = { x: e.clientX, y: e.clientY }; if (onScreen) kick();
         }, { passive: true });
         document.addEventListener('pointerout', e => { if (!e.relatedTarget && !(e.isTrusted && testing())) { aim = null; kick(); } }); // left the window
-        addEventListener('scroll', () => { if (aim) kick(); }, { passive: true });
+        addEventListener('scroll', () => { if (aim && onScreen) kick(); }, { passive: true });
       } else {
         step = 1;
         addEventListener('deviceorientation', e => {      // fires with values only where no permission is needed (Android); never prompt on iOS
           if (e.gamma == null || e.beta == null) return;
-          if (!tilt) { tilt = true; syncIdle(); }
+          const angle = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+          if (angle % 180) { if (tilt) { tilt = false; syncIdle(); } tilt0 = null; return; } // landscape: axes swap, so keep the idle glance instead
+          if (!tilt) {                                      // a phone lying still (constant readings) must not pin the head: wait for real movement
+            if (!tilt0) tilt0 = { g: e.gamma, b: e.beta };
+            if (Math.abs(e.gamma - tilt0.g) < 2 && Math.abs(e.beta - tilt0.b) < 2) return;
+            tilt = true; syncIdle();
+          }
           aim = { gamma: e.gamma, beta: e.beta };
-          kick();
+          if (onScreen) kick();
         }, { passive: true });
         document.addEventListener('visibilitychange', syncIdle);
         syncIdle();
       }
       if ('IntersectionObserver' in window) {
-        new IntersectionObserver(l => { onScreen = l[l.length - 1].isIntersecting; if (!onScreen) { gx = gy = tx = ty = 1; paint(); } else kick(); syncIdle(); }).observe(holder);
+        new IntersectionObserver(l => {
+          onScreen = l[l.length - 1].isIntersecting;     // a display:none holder (closed gate) reports not intersecting
+          if (!onScreen) { cancelAnimationFrame(raf); raf = 0; last = 0; holder.classList.remove('is-moving'); gx = gy = tx = ty = 1; paint(); } else kick();
+          syncIdle();
+        }).observe(holder);
       }
     }
     function begin() {
