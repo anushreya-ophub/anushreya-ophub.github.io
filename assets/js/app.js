@@ -39,6 +39,99 @@
     location.href = NF.ctaMailto(input.value.trim());
   });
 
+  /* ── "head follows the cursor" portrait ──
+     Nine photos stacked in a round frame; one is visible at a time. Frames are created only when needed.
+     Mouse: the head turns toward the pointer. Touch: device tilt where it needs no permission, else a gentle idle glance.
+     Reduced motion: the straight-ahead frame only. */
+  const LOOK_CENTER = 4;                               // index of look-2-2 in images.look (row-major)
+  const LOOK_IDLE = [4, 5, 4, 1, 4, 3, 4, 7];          // 2-2 → 2-3 → 2-2 → 1-2 → 2-2 → 2-1 → 2-2 → 3-2
+  function mountLook(holder, opts) {
+    opts = opts || {};
+    const paths = P.images.look;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const frames = [];
+    let cur = LOOK_CENTER, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, aim = null;
+    const pick = (d, zone) => Math.abs(d) < zone ? 1 : d < 0 ? 0 : 2; // 0, 1, 2 = left/centre/right (or up/centre/down)
+    const ready = im => im && im.complete && im.naturalWidth > 0;
+
+    function frame(i) {
+      const im = new Image();
+      im.decoding = 'async';
+      im.alt = i === LOOK_CENTER ? (opts.alt || '') : '';
+      if (i !== LOOK_CENTER) im.setAttribute('aria-hidden', 'true');
+      im.width = im.height = 480;
+      im.src = paths[i];
+      frames[i] = im;
+      holder.insertBefore(im, frames.slice(i + 1).find(Boolean) || null); // keep the DOM in row-major order
+      return im;
+    }
+    function show(i) {
+      if (i === cur || !ready(frames[i])) return;       // never blank out the portrait for a frame that hasn't loaded
+      frames[cur].classList.remove('is-on');
+      frames[i].classList.add('is-on');
+      cur = i;
+    }
+    const frameAt = (r, c) => r * 3 + c;
+    function render() {
+      raf = 0;
+      if (!onScreen || !aim) return show(LOOK_CENTER);
+      if (aim.pointer) {
+        const b = holder.getBoundingClientRect();
+        const dx = aim.x - (b.left + b.width / 2), dy = aim.y - (b.top + b.height / 2);
+        show(frameAt(pick(dy, innerHeight * .12), pick(dx, innerWidth * .12)));
+      } else show(frameAt(pick(aim.beta - 50, 12), pick(aim.gamma, 12))); // 50° ≈ a phone held in the hand
+    }
+    const queue = () => { if (!raf) raf = requestAnimationFrame(render); };
+
+    function syncIdle() {
+      const go = !still && !fine && !tilt && onScreen && !document.hidden;
+      if (go && !idle) idle = setInterval(() => show(LOOK_IDLE[step++ % LOOK_IDLE.length]), 1800);
+      if (!go && idle) { clearInterval(idle); idle = 0; }
+    }
+    function track() {
+      if (fine) {
+        addEventListener('pointermove', e => { if (e.pointerType !== 'touch') { aim = { pointer: true, x: e.clientX, y: e.clientY }; queue(); } }, { passive: true });
+        document.addEventListener('pointerout', e => { if (!e.relatedTarget) { aim = null; queue(); } }); // left the window
+      } else {
+        step = 1;
+        addEventListener('deviceorientation', e => {      // fires with values only where no permission is needed (Android); never prompt on iOS
+          if (e.gamma == null || e.beta == null) return;
+          if (!tilt) { tilt = true; syncIdle(); }
+          aim = { gamma: e.gamma, beta: e.beta };
+          queue();
+        }, { passive: true });
+        document.addEventListener('visibilitychange', syncIdle);
+        syncIdle();
+      }
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(l => { onScreen = l[l.length - 1].isIntersecting; if (!onScreen) show(LOOK_CENTER); else if (aim) queue(); syncIdle(); }).observe(holder);
+      }
+    }
+    function begin() {
+      if (opts.replace) opts.replace.replaceWith(holder);
+      if (still) return;
+      for (let i = 0; i < paths.length; i++) if (!frames[i]) frame(i);
+      track();
+    }
+
+    const first = frame(LOOK_CENTER);
+    first.classList.add('is-on');
+    if (ready(first)) begin(); else first.addEventListener('load', begin, { once: true }); // the other eight wait for the first
+  }
+
+  /* gate: the avatar loads when the gate first opens (see openGate); contact: when the band is within 400 px of the screen */
+  const ctaAv = $('.ctaband__av');
+  if (ctaAv && P.images.look) {
+    const holder = document.createElement('div');
+    holder.className = 'look look--cta';
+    const go = () => mountLook(holder, { alt: 'Portrait of Anushreya', replace: ctaAv }); // swapped in once its first frame has loaded
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(l => { if (l.some(en => en.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
+      io.observe(ctaAv);
+    } else go();
+  }
+
   /* ── billboard ── */
   function renderBill(key) {
     const t = NF.get(key), I = P.images, photo = t.art.motif === 'photo';
@@ -221,8 +314,10 @@
   let chosen = false;
   $('#gate-list').innerHTML = P.profiles.map(p =>
     `<button class="prof" data-p="${p.id}"><span class="prof__av" style="background:${p.color}">${NF.icons[p.icon]}</span><span class="prof__name">${p.name}</span></button>`).join('');
+  let gateLook = false;
   function openGate() {
     gate.hidden = false;
+    if (!gateLook) { gateLook = true; mountLook($('#gate-look')); }
     document.documentElement.classList.add('no-scroll');
     if (intro.isConnected) focusGate = true; else focusFirstProfile();
   }

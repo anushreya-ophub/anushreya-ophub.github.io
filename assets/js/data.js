@@ -24,7 +24,13 @@ window.PORTFOLIO = {
     heroCutout: false,
     heroMobile: 'assets/img/hero-mobile.jpg',
     poster: 'assets/img/hero-mobile.jpg',
-    work: { presenting: null, whiteboard: null, laptop: null }
+    work: { presenting: null, whiteboard: null, laptop: null },
+    /* "head follows the cursor" frames, row-major: row 1 = looking up … 3 = down, col 1 = viewer's left … 3 = right */
+    look: [
+      'assets/img/look/look-1-1.jpg', 'assets/img/look/look-1-2.jpg', 'assets/img/look/look-1-3.jpg',
+      'assets/img/look/look-2-1.jpg', 'assets/img/look/look-2-2.jpg', 'assets/img/look/look-2-3.jpg',
+      'assets/img/look/look-3-1.jpg', 'assets/img/look/look-3-2.jpg', 'assets/img/look/look-3-3.jpg'
+    ]
   },
 
   /* The "show" about her: Recruiter billboard, series card, trailer. */

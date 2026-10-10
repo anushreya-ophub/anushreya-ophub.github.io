@@ -151,6 +151,30 @@ export const checks = {
     input.value = '';
     return f;
   },
+  async look() {
+    const f = [], P = window.PORTFOLIO;
+    $('#contact').scrollIntoView({ block: 'center' });
+    const frames = () => $$('#contact .look img');
+    for (let i = 0; i < 40 && !(frames().length === 9 && frames().every(im => im.complete && im.naturalWidth)); i++) await wait(50);
+    if (frames().length !== 9) return ['contact avatar frames ' + frames().length];
+    if (frames().some(im => !im.naturalWidth)) f.push('frames did not load');
+    if ($('#contact img.ctaband__av')) f.push('static avatar still on the page');
+    if (frames().map(im => im.getAttribute('src')).join() !== P.images.look.join()) f.push('frame order');
+    if (frames().filter(im => im.getAttribute('alt')).length !== 1 || !frames()[4].alt) f.push('only look-2-2 should carry the alt text');
+    if (frames().some((im, i) => i !== 4 && im.getAttribute('aria-hidden') !== 'true')) f.push('other frames not aria-hidden');
+    const on = () => $$('#contact .look img.is-on').map(im => im.getAttribute('src').split('/').pop()).join();
+    const point = async (x, y, want) => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerType: 'mouse', bubbles: true }));
+      for (let i = 0; i < 20 && on() !== want; i++) await wait(50);
+      if (on() !== want) f.push(`pointer at ${Math.round(x)},${Math.round(y)} shows ${on() || 'nothing'}, wanted ${want}`);
+    };
+    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return f.concat('look check needs a mouse-like pointer (hover + fine)');
+    const b = $('#contact .look').getBoundingClientRect();
+    await point(8, 8, 'look-1-1.jpg');
+    await point(innerWidth - 8, innerHeight - 8, 'look-3-3.jpg');
+    await point(b.left + b.width / 2, b.top + b.height / 2, 'look-2-2.jpg');
+    return f;
+  },
   async motion() {
     const f = [], P = window.PORTFOLIO;
     if ($$('#rows .journey__step').length !== 7) f.push('journey steps ' + $$('#rows .journey__step').length);
