@@ -1,0 +1,7 @@
+# GitHub Pages (Jekyll): keep repo-only folders off the live site.
+exclude:
+  - docs
+  - tests
+  - tools
+  - samples
+  - README.md

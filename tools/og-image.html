@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social preview template (1200×630)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #141414; color: #fff; font-family: Inter, sans-serif }
+  .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 72% 28% }
+  .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .92) 0%, rgba(0, 0, 0, .6) 42%, transparent 70%) }
+  .text { position: absolute; left: 64px; top: 0; bottom: 0; width: 600px; display: flex; flex-direction: column; justify-content: center }
+  .mark { font-family: 'Bebas Neue', sans-serif; color: #e50914; font-size: 34px; letter-spacing: .3em }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 150px; line-height: .85; margin: 14px 0 16px }
+  p { font-size: 28px; font-weight: 500; color: #e5e5e5; margin: 0; line-height: 1.3 }
+  .tag { margin-top: 24px; font-size: 20px; font-weight: 700; color: #46d369 }
+</style>
+</head>
+<body>
+  <img class="photo" src="../assets/img/hero-wide.jpg" alt="" onerror="this.onerror=null;this.src='../assets/img/anushreya-portrait.jpg'">
+  <div class="shade"></div>
+  <div class="text">
+    <div class="mark">A SERIES</div>
+    <h1>ANUSHREYA</h1>
+    <p>Business Analyst · Returns &amp; Fraud Analytics · Process Automation</p>
+    <div class="tag">AJIO · Reliance Retail · Open to Bengaluru</div>
+  </div>
+</body>
+</html>
