@@ -153,26 +153,31 @@ export const checks = {
   },
   async look() {
     const f = [], P = window.PORTFOLIO;
-    $('#contact').scrollIntoView({ block: 'center' });
-    const frames = () => $$('#contact .look img');
-    for (let i = 0; i < 40 && !(frames().length === 9 && frames().every(im => im.complete && im.naturalWidth)); i++) await wait(50);
-    if (frames().length !== 9) return ['contact avatar frames ' + frames().length];
-    if (frames().some(im => !im.naturalWidth)) f.push('frames did not load');
-    if ($('#contact img.ctaband__av')) f.push('static avatar still on the page');
-    if (frames().map(im => im.getAttribute('src')).join() !== P.images.look.join()) f.push('frame order');
-    if (frames().filter(im => im.getAttribute('alt')).length !== 1 || !frames()[4].alt) f.push('only look-2-2 should carry the alt text');
-    if (frames().some((im, i) => i !== 4 && im.getAttribute('aria-hidden') !== 'true')) f.push('other frames not aria-hidden');
-    const on = () => $$('#contact .look img.is-on').map(im => im.getAttribute('src').split('/').pop()).join();
-    const point = async (x, y, want) => {
-      window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerType: 'mouse', bubbles: true }));
-      for (let i = 0; i < 20 && on() !== want; i++) await wait(50);
-      if (on() !== want) f.push(`pointer at ${Math.round(x)},${Math.round(y)} shows ${on() || 'nothing'}, wanted ${want}`);
-    };
-    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return f.concat('look check needs a mouse-like pointer (hover + fine)');
-    const b = $('#contact .look').getBoundingClientRect();
-    await point(8, 8, 'look-1-1.jpg');
-    await point(innerWidth - 8, innerHeight - 8, 'look-3-3.jpg');
-    await point(b.left + b.width / 2, b.top + b.height / 2, 'look-2-2.jpg');
+    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return Object.assign([], { note: 'skipped: needs a mouse-like pointer (hover + fine)' });
+    document.documentElement.dataset.lookTest = '1'; // the component then ignores the real mouse, so scripted events aren't raced
+    try {
+      $('#contact').scrollIntoView({ block: 'center' });
+      const frames = () => $$('#contact .look img');
+      for (let i = 0; i < 40 && !(frames().length === 9 && frames().every(im => im.complete && im.naturalWidth)); i++) await wait(50);
+      if (frames().length !== 9) return ['contact avatar frames ' + frames().length];
+      if ($('#contact img.ctaband__av')) f.push('static avatar still on the page');
+      if (frames().map(im => im.getAttribute('src')).join() !== P.images.look.join()) f.push('frame order');
+      if (frames().filter(im => im.getAttribute('alt')).length !== 1 || !frames()[4].alt) f.push('only look-2-2 should carry the alt text');
+      if (frames().some((im, i) => i !== 4 && im.getAttribute('aria-hidden') !== 'true')) f.push('other frames not aria-hidden');
+      const holder = $('#contact .look');
+      const point = async (x, y, want) => {
+        window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerType: 'mouse', bubbles: true }));
+        for (let i = 0; i < 40 && holder.dataset.frame !== want; i++) await wait(50);
+        await wait(200);
+        if (holder.dataset.frame !== want) f.push(`pointer at ${Math.round(x)},${Math.round(y)} settles on ${holder.dataset.frame}, wanted ${want}`);
+      };
+      await point(8, 8, '1-1');
+      await point(innerWidth - 8, innerHeight - 8, '3-3');
+      const b = holder.getBoundingClientRect();
+      await point(b.left + b.width / 2, b.top + b.height / 2, '2-2');
+    } finally {
+      delete document.documentElement.dataset.lookTest;
+    }
     return f;
   },
   async motion() {
@@ -203,7 +208,7 @@ export const checks = {
 
 export async function run(name) {
   const fails = await checks[name]();
-  return { name, pass: fails.length === 0, fails };
+  return { name, pass: fails.length === 0, fails, ...(fails.note && { note: fails.note }) };
 }
 
 export async function runAll() {

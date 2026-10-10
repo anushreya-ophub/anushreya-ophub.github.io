@@ -40,19 +40,23 @@
   });
 
   /* ── "head follows the cursor" portrait ──
-     Nine photos stacked in a round frame; one is visible at a time. Frames are created only when needed.
-     Mouse: the head turns toward the pointer. Touch: device tilt where it needs no permission, else a gentle idle glance.
-     Reduced motion: the straight-ahead frame only. */
-  const LOOK_CENTER = 4;                               // index of look-2-2 in images.look (row-major)
-  const LOOK_IDLE = [4, 5, 4, 1, 4, 3, 4, 7];          // 2-2 → 2-3 → 2-2 → 1-2 → 2-2 → 2-1 → 2-2 → 3-2
+     Nine photos (3 × 3 grid of head directions) stacked in a round frame. A continuous position (gx, gy), each 0…2,
+     eases toward where the pointer / tilt / idle glance points; the four photos around it are cross-faded by bilinear
+     weights, so the head turns smoothly instead of snapping between frames. Frames are created only when needed.
+     Reduced motion: the straight-ahead frame only, nothing else loaded. */
+  const LOOK_CENTER = 4;                                          // index of look-2-2 in images.look (row-major)
+  const LOOK_IDLE = [[1, 1], [2, 1], [1, 1], [1, 0], [1, 1], [0, 1], [1, 1], [1, 2]]; // gx, gy: 2-2 → 2-3 → 2-2 → 1-2 → 2-2 → 2-1 → 2-2 → 3-2
+  const LOOK_SHIFT = 2, LOOK_TURN = 1.5;                          // parallax: up to 2 % translate (~3 px) and 1.5° rotate
+  /* distance past a small dead zone → 0…2 around the centre (1), easing out with tanh so it never jumps at the edges */
+  const lookAxis = (d, dead, span) => 1 + Math.sign(d) * Math.tanh(1.6 * Math.max(0, Math.abs(d) - dead) / span);
   function mountLook(holder, opts) {
     opts = opts || {};
-    const paths = P.images.look;
+    const paths = P.images.look, root = document.documentElement;
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
-    const frames = [];
-    let cur = LOOK_CENTER, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, aim = null;
-    const pick = (d, zone) => Math.abs(d) < zone ? 1 : d < 0 ? 0 : 2; // 0, 1, 2 = left/centre/right (or up/centre/down)
+    const frames = [], op = new Array(9).fill(0);
+    let stack = null, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, last = 0, aim = null;
+    let gx = 1, gy = 1, tx = 1, ty = 1, dom = '2-2';
     const ready = im => im && im.complete && im.naturalWidth > 0;
 
     function frame(i) {
@@ -63,49 +67,89 @@
       im.width = im.height = 480;
       im.src = paths[i];
       frames[i] = im;
-      holder.insertBefore(im, frames.slice(i + 1).find(Boolean) || null); // keep the DOM in row-major order
+      im.decode().catch(() => {});                  // decode up front so the first fade-in doesn't stall
+      stack.insertBefore(im, frames.slice(i + 1).find(Boolean) || null); // keep the DOM in row-major order
       return im;
     }
-    function show(i) {
-      if (i === cur || !ready(frames[i])) return;       // never blank out the portrait for a frame that hasn't loaded
-      frames[cur].classList.remove('is-on');
-      frames[i].classList.add('is-on');
-      cur = i;
+    function setOpacity(i, v) {
+      if (op[i] === v || !frames[i]) return;
+      op[i] = v;
+      frames[i].style.opacity = v;
     }
-    const frameAt = (r, c) => r * 3 + c;
-    function render() {
+    /* Paint (gx, gy): bottom layer fully opaque, each next layer at w / (sum of weights so far) → an exact weighted average. */
+    function paint() {
+      const x0 = Math.min(Math.floor(gx), 1), y0 = Math.min(Math.floor(gy), 1), fx = gx - x0, fy = gy - y0;
+      const w = [[y0 * 3 + x0, (1 - fx) * (1 - fy)], [y0 * 3 + x0 + 1, fx * (1 - fy)], [(y0 + 1) * 3 + x0, (1 - fx) * fy], [(y0 + 1) * 3 + x0 + 1, fx * fy]]
+        .filter(([i, v]) => v > .002 && ready(frames[i]));          // row-major order = DOM order = paint order
+      const want = new Array(9).fill(0);
+      let sum = 0;
+      for (const [i, v] of w) { sum += v; want[i] = w[0][0] === i ? 1 : v / sum; }
+      if (!w.length) want[LOOK_CENTER] = 1;
+      for (let i = 0; i < 9; i++) setOpacity(i, Math.round(want[i] * 1000) / 1000);
+      stack.style.transform = `translate(${((gx - 1) * LOOK_SHIFT).toFixed(3)}%, ${((gy - 1) * LOOK_SHIFT).toFixed(3)}%) rotate(${((gx - 1) * LOOK_TURN).toFixed(3)}deg)`;
+      const name = `${Math.round(gy) + 1}-${Math.round(gx) + 1}`;
+      if (name !== dom) holder.dataset.frame = dom = name;
+    }
+    /* Where the head should point. Once the input has rested for a moment it settles onto the nearest of the nine photos,
+       so a resting pointer never leaves a half-way (double-image) blend on screen. */
+    let rx = 1, ry = 1, snap = false, dwell = 0;
+    function target() {
+      let nx = 1, ny = 1;
+      if (!onScreen) { tx = ty = rx = ry = 1; return; }
+      if (tilt) { nx = lookAxis(aim.gamma, 4, 25); ny = lookAxis(aim.beta - 50, 4, 25); } // 50° ≈ a phone held in the hand
+      else if (fine) {
+        if (aim) {
+          const b = holder.getBoundingClientRect();
+          nx = lookAxis(aim.x - (b.left + b.width / 2), innerWidth * .05, innerWidth * .35);
+          ny = lookAxis(aim.y - (b.top + b.height / 2), innerHeight * .05, innerHeight * .35);
+        }
+      } else return;                                          // idle glance: the interval sets tx, ty
+      if (Math.abs(nx - rx) + Math.abs(ny - ry) > .04) { rx = nx; ry = ny; snap = false; clearTimeout(dwell); dwell = setTimeout(() => { snap = true; kick(); }, 220); }
+      tx = snap ? Math.round(rx) : rx; ty = snap ? Math.round(ry) : ry;
+    }
+    /* ease toward the target every frame (frame-rate independent); stop once settled */
+    function tick(now) {
       raf = 0;
-      if (!onScreen || !aim) return show(LOOK_CENTER);
-      if (aim.pointer) {
-        const b = holder.getBoundingClientRect();
-        const dx = aim.x - (b.left + b.width / 2), dy = aim.y - (b.top + b.height / 2);
-        show(frameAt(pick(dy, innerHeight * .12), pick(dx, innerWidth * .12)));
-      } else show(frameAt(pick(aim.beta - 50, 12), pick(aim.gamma, 12))); // 50° ≈ a phone held in the hand
+      const dt = last ? Math.min((now - last) / 1000, .1) : 1 / 60;
+      last = now;
+      target();
+      const k = 1 - Math.exp(-dt * (fine || tilt ? 12 : 4));
+      gx += (tx - gx) * k; gy += (ty - gy) * k;
+      if (Math.abs(tx - gx) < .001 && Math.abs(ty - gy) < .001) { gx = tx; gy = ty; last = 0; }
+      else raf = requestAnimationFrame(tick);
+      paint();
     }
-    const queue = () => { if (!raf) raf = requestAnimationFrame(render); };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
     function syncIdle() {
       const go = !still && !fine && !tilt && onScreen && !document.hidden;
-      if (go && !idle) idle = setInterval(() => show(LOOK_IDLE[step++ % LOOK_IDLE.length]), 1800);
+      if (go && !idle) {
+        idle = setInterval(() => { [tx, ty] = LOOK_IDLE[step++ % LOOK_IDLE.length]; kick(); }, 1600);
+      }
       if (!go && idle) { clearInterval(idle); idle = 0; }
     }
     function track() {
+      const testing = () => root.dataset.lookTest === '1'; // test hook: ignore the real mouse so scripted events aren't raced
       if (fine) {
-        addEventListener('pointermove', e => { if (e.pointerType !== 'touch') { aim = { pointer: true, x: e.clientX, y: e.clientY }; queue(); } }, { passive: true });
-        document.addEventListener('pointerout', e => { if (!e.relatedTarget) { aim = null; queue(); } }); // left the window
+        addEventListener('pointermove', e => {
+          if (e.pointerType === 'touch' || (e.isTrusted && testing())) return;
+          aim = { x: e.clientX, y: e.clientY }; kick();
+        }, { passive: true });
+        document.addEventListener('pointerout', e => { if (!e.relatedTarget && !(e.isTrusted && testing())) { aim = null; kick(); } }); // left the window
+        addEventListener('scroll', () => { if (aim) kick(); }, { passive: true });
       } else {
         step = 1;
         addEventListener('deviceorientation', e => {      // fires with values only where no permission is needed (Android); never prompt on iOS
           if (e.gamma == null || e.beta == null) return;
           if (!tilt) { tilt = true; syncIdle(); }
           aim = { gamma: e.gamma, beta: e.beta };
-          queue();
+          kick();
         }, { passive: true });
         document.addEventListener('visibilitychange', syncIdle);
         syncIdle();
       }
       if ('IntersectionObserver' in window) {
-        new IntersectionObserver(l => { onScreen = l[l.length - 1].isIntersecting; if (!onScreen) show(LOOK_CENTER); else if (aim) queue(); syncIdle(); }).observe(holder);
+        new IntersectionObserver(l => { onScreen = l[l.length - 1].isIntersecting; if (!onScreen) { gx = gy = tx = ty = 1; paint(); } else kick(); syncIdle(); }).observe(holder);
       }
     }
     function begin() {
@@ -115,8 +159,12 @@
       track();
     }
 
+    stack = document.createElement('div');
+    stack.className = 'look__stack';
+    holder.appendChild(stack);
+    holder.dataset.frame = dom;
     const first = frame(LOOK_CENTER);
-    first.classList.add('is-on');
+    first.style.opacity = op[LOOK_CENTER] = 1;
     if (ready(first)) begin(); else first.addEventListener('load', begin, { once: true }); // the other eight wait for the first
   }
 
