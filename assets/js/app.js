@@ -39,6 +39,166 @@
     location.href = NF.ctaMailto(input.value.trim());
   });
 
+  /* ── "head follows the cursor" portrait ──
+     Nine photos (3 × 3 grid of head directions) stacked in a round frame. A continuous position (gx, gy), each 0…2,
+     eases toward where the pointer / tilt / idle glance points; the four photos around it are cross-faded by bilinear
+     weights, so the head turns smoothly instead of snapping between frames. Frames are created only when needed.
+     Reduced motion: the straight-ahead frame only, nothing else loaded. */
+  const LOOK_CENTER = 4;                                          // index of look-2-2 in images.look (row-major)
+  const LOOK_IDLE = [[1, 1], [2, 1], [1, 1], [1, 0], [1, 1], [0, 1], [1, 1], [1, 2]]; // gx, gy: 2-2 → 2-3 → 2-2 → 1-2 → 2-2 → 2-1 → 2-2 → 3-2
+  const LOOK_SHIFT = 2, LOOK_TURN = 1.5;                          // parallax: up to 2 % translate (~3 px) and 1.5° rotate
+  /* distance past a small dead zone → 0…2 around the centre (1), easing out with tanh so it never jumps at the edges */
+  const lookAxis = (d, dead, span) => 1 + Math.sign(d) * Math.tanh(1.6 * Math.max(0, Math.abs(d) - dead) / span);
+  /* Photos of different head poses ghost when mixed 50/50, so the cross-fade only happens in the middle 40 % between two photos
+     (smoothstep); the rest of the way a photo shows cleanly. The position itself (and the parallax) still moves continuously. */
+  const lookSharp = f => { const t = Math.min(1, Math.max(0, (f - .3) / .4)); return t * t * (3 - 2 * t); };
+  function mountLook(holder, opts) {
+    opts = opts || {};
+    const paths = P.images.look, root = document.documentElement;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const frames = [], op = new Array(9).fill(0);
+    let stack = null, onScreen = true, idle = 0, step = 0, tilt = false, raf = 0, last = 0, aim = null, tilt0 = null;
+    let gx = 1, gy = 1, tx = 1, ty = 1, dom = '2-2';
+    const ready = im => im && im.complete && im.naturalWidth > 0;
+
+    function frame(i) {
+      const im = new Image();
+      im.decoding = 'async';
+      im.alt = i === LOOK_CENTER ? (opts.alt || '') : '';
+      if (i !== LOOK_CENTER) im.setAttribute('aria-hidden', 'true');
+      im.width = im.height = 480;
+      im.src = paths[i];
+      frames[i] = im;
+      im.decode().catch(() => {});                  // decode up front so the first fade-in doesn't stall
+      if (!still) im.addEventListener('load', () => kick()); // a frame that arrives late joins the blend of a resting pointer
+      stack.insertBefore(im, frames.slice(i + 1).find(Boolean) || null); // keep the DOM in row-major order
+      return im;
+    }
+    function setOpacity(i, v) {
+      if (op[i] === v || !frames[i]) return;
+      op[i] = v;
+      frames[i].style.opacity = v;
+    }
+    /* Paint (gx, gy): bottom layer fully opaque, each next layer at w / (sum of weights so far) → an exact weighted average. */
+    function paint() {
+      const x0 = Math.min(Math.floor(gx), 1), y0 = Math.min(Math.floor(gy), 1), fx = lookSharp(gx - x0), fy = lookSharp(gy - y0);
+      const w = [[y0 * 3 + x0, (1 - fx) * (1 - fy)], [y0 * 3 + x0 + 1, fx * (1 - fy)], [(y0 + 1) * 3 + x0, (1 - fx) * fy], [(y0 + 1) * 3 + x0 + 1, fx * fy]]
+        .filter(([i, v]) => v > .002 && ready(frames[i]));          // row-major order = DOM order = paint order
+      const want = new Array(9).fill(0);
+      let sum = 0;
+      for (const [i, v] of w) { sum += v; want[i] = w[0][0] === i ? 1 : v / sum; }
+      if (!w.length) want[LOOK_CENTER] = 1;
+      for (let i = 0; i < 9; i++) setOpacity(i, Math.round(want[i] * 1000) / 1000);
+      stack.style.transform = `translate(${((gx - 1) * LOOK_SHIFT).toFixed(3)}%, ${((gy - 1) * LOOK_SHIFT).toFixed(3)}%) rotate(${((gx - 1) * LOOK_TURN).toFixed(3)}deg)`;
+      const name = `${Math.round(gy) + 1}-${Math.round(gx) + 1}`;
+      if (name !== dom) holder.dataset.frame = dom = name;
+    }
+    /* Where the head should point. Once the input has rested for a moment it settles onto the nearest of the nine photos,
+       so a resting pointer never leaves a half-way (double-image) blend on screen. */
+    let rx = 1, ry = 1, snap = false, dwell = 0;
+    function target() {
+      let nx = 1, ny = 1;
+      if (!onScreen) { tx = ty = rx = ry = 1; return; }
+      if (tilt) { nx = lookAxis(aim.gamma, 4, 25); ny = lookAxis(aim.beta - 50, 4, 25); } // 50° ≈ a phone held in the hand
+      else if (fine) {
+        if (aim) {
+          const b = holder.getBoundingClientRect();
+          nx = lookAxis(aim.x - (b.left + b.width / 2), innerWidth * .05, innerWidth * .35);
+          ny = lookAxis(aim.y - (b.top + b.height / 2), innerHeight * .05, innerHeight * .35);
+        }
+      } else return;                                          // idle glance: the interval sets tx, ty
+      if (Math.abs(nx - rx) + Math.abs(ny - ry) > .04) { rx = nx; ry = ny; snap = false; clearTimeout(dwell); dwell = setTimeout(() => { snap = true; kick(); }, 150); }
+      tx = snap ? Math.round(rx) : rx; ty = snap ? Math.round(ry) : ry;
+    }
+    /* ease toward the target every frame (frame-rate independent); stop once settled */
+    function tick(now) {
+      raf = 0;
+      const dt = last ? Math.min((now - last) / 1000, .1) : 1 / 60;
+      last = now;
+      target();
+      const k = 1 - Math.exp(-dt * (fine || tilt ? 18 : 8));
+      gx += (tx - gx) * k; gy += (ty - gy) * k;
+      if (Math.abs(tx - gx) < .001 && Math.abs(ty - gy) < .001) { gx = tx; gy = ty; last = 0; holder.classList.remove('is-moving'); }
+      else raf = requestAnimationFrame(tick);
+      paint();
+    }
+    /* no animation frames are scheduled while the portrait is off screen (or its gate is closed); `is-moving` gives the layers their will-change only while a loop runs */
+    function kick() {
+      if (raf || !onScreen) return;
+      holder.classList.add('is-moving');
+      raf = requestAnimationFrame(tick);
+    }
+
+    function syncIdle() {
+      const go = !still && !fine && !tilt && onScreen && !document.hidden;
+      if (go && !idle) {
+        idle = setInterval(() => { [tx, ty] = LOOK_IDLE[step++ % LOOK_IDLE.length]; kick(); }, 1200);
+      }
+      if (!go && idle) { clearInterval(idle); idle = 0; }
+    }
+    function track() {
+      const testing = () => root.dataset.lookTest === '1'; // test hook: ignore the real mouse so scripted events aren't raced
+      if (fine) {
+        addEventListener('pointermove', e => {
+          if (e.pointerType === 'touch' || (e.isTrusted && testing())) return;
+          aim = { x: e.clientX, y: e.clientY }; if (onScreen) kick();
+        }, { passive: true });
+        document.addEventListener('pointerout', e => { if (!e.relatedTarget && !(e.isTrusted && testing())) { aim = null; kick(); } }); // left the window
+        addEventListener('scroll', () => { if (aim && onScreen) kick(); }, { passive: true });
+      } else {
+        step = 1;
+        addEventListener('deviceorientation', e => {      // fires with values only where no permission is needed (Android); never prompt on iOS
+          if (e.gamma == null || e.beta == null) return;
+          const angle = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+          if (angle % 180) { if (tilt) { tilt = false; syncIdle(); } tilt0 = null; return; } // landscape: axes swap, so keep the idle glance instead
+          if (!tilt) {                                      // a phone lying still (constant readings) must not pin the head: wait for real movement
+            if (!tilt0) tilt0 = { g: e.gamma, b: e.beta };
+            if (Math.abs(e.gamma - tilt0.g) < 2 && Math.abs(e.beta - tilt0.b) < 2) return;
+            tilt = true; syncIdle();
+          }
+          aim = { gamma: e.gamma, beta: e.beta };
+          if (onScreen) kick();
+        }, { passive: true });
+        document.addEventListener('visibilitychange', syncIdle);
+        syncIdle();
+      }
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(l => {
+          onScreen = l[l.length - 1].isIntersecting;     // a display:none holder (closed gate) reports not intersecting
+          if (!onScreen) { cancelAnimationFrame(raf); raf = 0; last = 0; holder.classList.remove('is-moving'); gx = gy = tx = ty = 1; paint(); } else kick();
+          syncIdle();
+        }).observe(holder);
+      }
+    }
+    function begin() {
+      if (opts.replace) opts.replace.replaceWith(holder);
+      if (still) return;
+      for (let i = 0; i < paths.length; i++) if (!frames[i]) frame(i);
+      track();
+    }
+
+    stack = document.createElement('div');
+    stack.className = 'look__stack';
+    holder.appendChild(stack);
+    holder.dataset.frame = dom;
+    const first = frame(LOOK_CENTER);
+    first.style.opacity = op[LOOK_CENTER] = 1;
+    if (ready(first)) begin(); else first.addEventListener('load', begin, { once: true }); // the other eight wait for the first
+  }
+
+  /* gate: the avatar loads when the gate first opens (see openGate); contact: when the band is within 400 px of the screen */
+  const ctaAv = $('.ctaband__av');
+  if (ctaAv && P.images.look) {
+    const holder = document.createElement('div');
+    holder.className = 'look look--cta';
+    const go = () => mountLook(holder, { alt: 'Portrait of Anushreya', replace: ctaAv }); // swapped in once its first frame has loaded
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(l => { if (l.some(en => en.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
+      io.observe(ctaAv);
+    } else go();
+  }
+
   /* ── billboard ── */
   function renderBill(key) {
     const t = NF.get(key), I = P.images, photo = t.art.motif === 'photo';
@@ -221,8 +381,10 @@
   let chosen = false;
   $('#gate-list').innerHTML = P.profiles.map(p =>
     `<button class="prof" data-p="${p.id}"><span class="prof__av" style="background:${p.color}">${NF.icons[p.icon]}</span><span class="prof__name">${p.name}</span></button>`).join('');
+  let gateLook = false;
   function openGate() {
     gate.hidden = false;
+    if (!gateLook) { gateLook = true; mountLook($('#gate-look')); }
     document.documentElement.classList.add('no-scroll');
     if (intro.isConnected) focusGate = true; else focusFirstProfile();
   }

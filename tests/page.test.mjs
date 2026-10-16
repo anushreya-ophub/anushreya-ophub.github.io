@@ -20,7 +20,7 @@ test('JSON-LD Person is valid and uses the résumé contact details', () => {
   assert.equal(json['@type'], 'Person');
   assert.equal(json.name, 'Anushreya');
   assert.equal(json.email, 'mailto:ssanushreya@gmail.com');
-  assert.deepEqual(json.sameAs, ['https://www.linkedin.com/in/anushreya1306']);
+  assert.deepEqual(json.sameAs, ['https://www.linkedin.com/in/anushreya-ops']);
 });
 
 test('one h1, a skip link and no-JavaScript fallbacks', () => {

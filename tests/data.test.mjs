@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { load, read, root } from './helpers/load.mjs';
 import { RESUME_NUMBERS, numbersIn } from './helpers/resume.mjs';
 
@@ -57,7 +57,7 @@ test('every title has what the cards, modal and player need', () => {
 
 test('contact details come from the résumé and the phone number is never published', () => {
   assert.equal(P.person.email, 'ssanushreya@gmail.com');
-  assert.equal(P.person.linkedin, 'https://www.linkedin.com/in/anushreya1306');
+  assert.equal(P.person.linkedin, 'https://www.linkedin.com/in/anushreya-ops');
   assert.doesNotMatch(read('assets/js/data.js'), /(?:\+?91[\s-]?)?\b\d{5}[\s-]?\d{5}\b|\b\d{10}\b/);
 });
 
@@ -70,9 +70,19 @@ test('image slots: portrait always set, the rest optional', () => {
 
 test('every image slot points at a real file', () => {
   const I = P.images;
-  for (const p of [I.portrait, I.heroWide, I.heroMobile, I.poster, ...Object.values(I.work)].filter(Boolean)) {
+  for (const p of [I.portrait, I.heroWide, I.heroMobile, I.poster, ...Object.values(I.work), ...I.look].filter(Boolean)) {
     assert.ok(existsSync(new URL(p, root)), p);
   }
+});
+
+test('look frames: nine, row-major, real files, each at most 40 KB', () => {
+  const look = P.images.look;
+  assert.equal(look.length, 9);
+  look.forEach((p, i) => {
+    assert.equal(p, `assets/img/look/look-${Math.floor(i / 3) + 1}-${(i % 3) + 1}.jpg`);
+    assert.ok(existsSync(new URL(p, root)), p);
+    assert.ok(statSync(new URL(p, root)).size <= 40 * 1024, `${p} is over 40 KB`);
+  });
 });
 
 test('order journey: seven steps in order, tagged steps open a real title, no digits in the copy', () => {

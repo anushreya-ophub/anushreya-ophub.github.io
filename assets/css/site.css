@@ -149,6 +149,14 @@ h1, h2, h3, p { margin: 0 }
 .prof__name { font-size: clamp(13px, 1.3vw, 19px) }
 .gate__note { color: var(--fg-4); font-size: 14px; max-width: 46ch }
 
+/* "head follows the cursor" portrait: nine frames stacked in a round frame, one visible at a time */
+.look { position: relative; flex: none; overflow: hidden; background: var(--bg-3); isolation: isolate }
+.look--gate { width: 160px; height: 160px }
+@media (max-width: 520px) { .look--gate { width: 112px; height: 112px } }
+.look__stack { position: absolute; inset: 0 }
+.look.is-moving .look__stack, .look.is-moving img { will-change: opacity, transform } /* layers are promoted only while the animation loop runs */
+.look img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; opacity: 0; transform: scale(1.4); transform-origin: 50% 6% } /* opacity is driven every frame by mountLook; the zoom fills the circle with the head (photos are head-and-shoulders) */
+
 /* nav */
 .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; gap: clamp(18px, 3vw, 44px); padding: 16px var(--pad); background: linear-gradient(180deg, rgba(0, 0, 0, .8) 10%, transparent); transition: background .4s }
 .nav.is-solid { background: var(--bg) }
@@ -301,7 +309,9 @@ html.js:not(.is-ready) .faq, html.js:not(.is-ready) .conveyor, html.js:not(.is-r
 
 /* contact call-to-action (from sample C) */
 .ctaband { text-align: center; padding: clamp(40px, 6vw, 72px) var(--pad) clamp(48px, 7vw, 88px); max-width: 860px; margin: 0 auto }
-.ctaband__av { width: clamp(84px, 9vw, 112px); height: auto; aspect-ratio: 1; border-radius: 50%; object-fit: cover; margin: 0 auto 20px; box-shadow: 0 0 0 3px var(--red), 0 12px 40px rgba(229, 9, 20, .35) }
+.ctaband__av, .look { border-radius: 50%; box-shadow: 0 0 0 3px var(--red), 0 12px 40px rgba(229, 9, 20, .35) }
+.ctaband__av, .look--cta { width: 140px; height: 140px; margin: 0 auto 20px; object-fit: cover }
+@media (max-width: 520px) { .ctaband__av, .look--cta { width: 112px; height: 112px } }
 .ctaband h2 { font-size: clamp(28px, 3.4vw, 48px); font-weight: 900; letter-spacing: -.01em }
 .ctaband > p { color: var(--fg-2); margin: 10px 0 18px; font-size: clamp(15px, 1.3vw, 18px) }
 .cta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap }
